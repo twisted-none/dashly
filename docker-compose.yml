@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: dashly_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+    networks:
+      - caddy_net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.0
+    container_name: dashly_keycloak
+    restart: always
+    command: start-dev
+    environment:
+      KC_PROXY: edge
+      KC_HOSTNAME: ${KC_HOSTNAME}
+      KC_HTTP_ENABLED: "true" 
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      - postgres
+    networks:
+      - caddy_net
+
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dashly_backend
+    restart: always
+    environment:
+      FRONTEND_URL: ${FRONTEND_URL}
+      KEYCLOAK_EXTERNAL_URL: ${KEYCLOAK_URL}
+      KEYCLOAK_INTERNAL_URL: http://dashly_keycloak:8080
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID_BACKEND}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/app_db
+    depends_on:
+      - keycloak
+      - postgres
+    networks:
+      - caddy_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${BACKEND_URL}/api
+        VITE_KEYCLOAK_URL: ${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}
+        VITE_KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID_FRONTEND}
+    container_name: dashly_frontend
+    restart: always
+    networks:
+      - caddy_net
+
+volumes:
+  postgres_data:
+
+networks:
+  caddy_net:
+    external: true

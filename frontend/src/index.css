@@ -3,16 +3,27 @@
 @tailwind utilities;
 
 @layer base {
+  /* Блокируем скролл на уровне окна браузера и убираем отступы */
+  html, body {
+    @apply antialiased h-screen w-full overflow-hidden;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Скрываем скроллбар для всех элементов (Firefox и старые Edge) */
   * {
     @apply transition-colors;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+
+  /* Скрываем скроллбар для Chrome, Safari и новых Edge */
+  *::-webkit-scrollbar {
+    display: none;
   }
 
   html {
     @apply scroll-smooth;
-  }
-
-  body {
-    @apply antialiased;
   }
 }
 
@@ -24,4 +35,16 @@
   .gradient-text {
     @apply bg-gradient-to-r from-neon-purple to-neon-dark bg-clip-text text-transparent;
   }
+
+  /* Кастомный скроллбар (если вдруг захочешь где-то оставить, но сейчас всё скрыто) */
+  .custom-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Фикс для предотвращения "прыжка" контента при загрузке */
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
 }

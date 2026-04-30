@@ -1,33 +1,12 @@
-# --- System & IDE ---
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/
-*.swp
-
-# --- Python / Backend ---
-backend/__pycache__/
-backend/*.py[cod]
-backend/venv/
-backend/.venv/
-backend/.pytest_cache/
-
-# --- Node / Frontend ---
-frontend/node_modules/
-frontend/dist/
-frontend/build/
-frontend/npm-debug.log
-frontend/yarn-error.log
-
-# --- Docker & Database ---
-postgres_data/
-docker-compose.override.yml
-
-# --- SECURITY (Самое важное!) ---
 .env
-.env.local
-.env.*.local
-backend/.env
-frontend/.env
-**/*.pem
-**/*.key
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+*.log
+*.sql
+postgres_data/
+keycloak_data/
+node_modules/
+dist/
+.DS_Store

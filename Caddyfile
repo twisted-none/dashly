@@ -1,0 +1,18 @@
+{
+    admin off
+}
+
+{$KEYCLOAK_DOMAIN} {
+    reverse_proxy keycloak:8080 {
+        header_up X-Forwarded-Proto https
+        header_up Host {host}
+    }
+}
+
+{$DASHLY_DOMAIN} {
+    reverse_proxy frontend:80
+}
+
+{$DASHLY_API_DOMAIN} {
+    reverse_proxy backend:8000
+}

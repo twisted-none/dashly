@@ -1,28 +1,54 @@
-import { Lock, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
 import { useAuth } from 'react-oidc-context';
-import { useState } from 'react';
+import { AlertCircle, LogIn } from 'lucide-react';
+import { ThemeToggle } from './ThemeToggle';
 
 export function Login() {
   const auth = useAuth();
   const [error, setError] = useState<string | null>(null);
 
+  // Функция для установки куки на родительский домен, 
+  // чтобы она была доступна и на dash.domain.com, и на auth.domain.com
+  const setThemeCookie = (theme: string) => {
+    const hostname = window.location.hostname;
+    const parts = hostname.split('.');
+    
+    // Эвристика: если это не localhost и не IP-адрес, пробуем поставить куку на уровень выше
+    // Пример: dash.example.com -> .example.com
+    // Cookie на родительском домене будет видна и для auth...
+    let domainString = hostname;
+    if (parts.length > 2 && !/^\d+$/.test(parts[parts.length - 1])) {
+       // Берем все части, кроме первой (subdomain)
+       domainString = '.' + parts.slice(1).join('.');
+    }
+
+    // Ставим куку на 1 год
+    document.cookie = `kc-theme=${theme}; domain=${domainString}; path=/; max-age=31536000; SameSite=Lax`;
+    console.log(`Setting cross-domain cookie: kc-theme=${theme} on domain ${domainString}`);
+  };
+
   const handleLogin = async () => {
     try {
-      // Логируем настройки, чтобы проверить, видит ли их код
-      console.log("Auth Config:", {
-        authority: auth.settings.authority,
-        client_id: auth.settings.client_id,
-        redirect: auth.settings.redirect_uri
-      });
+      // 1. Получаем текущую тему
+      const savedTheme = localStorage.getItem('theme') || 'light';
+
+      console.log("Preparing login with theme:", savedTheme);
+      
+      // 2. ЗАПИСЫВАЕМ КУКУ перед редиректом
+      setThemeCookie(savedTheme);
 
       if (!auth.settings.authority || !auth.settings.client_id) {
         throw new Error("Не загрузились настройки Keycloak из .env файла");
       }
 
-      await auth.signinRedirect();
+      // 3. Отправляем тему также и в параметре (на всякий случай)
+      await auth.signinRedirect({
+        extraQueryParams: {
+          theme: savedTheme
+        }
+      });
     } catch (err: any) {
       console.error("Login failed:", err);
-      // Если ошибка связана с криптографией
       if (err.message && err.message.includes("crypto")) {
         setError("Браузер заблокировал вход. См. инструкцию ниже.");
       } else {
@@ -32,32 +58,43 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-gray-900 dark:via-neon-darker dark:to-gray-950 flex items-center justify-center p-4 transition-colors">
-      <div className="w-full max-w-md">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl dark:shadow-neon-dark p-8 border border-gray-200 dark:border-neon-purple/30">
-          <div className="flex justify-center mb-8">
-            <div className="bg-gradient-to-br from-neon-purple to-neon-dark p-4 rounded-xl shadow-neon dark:shadow-neon-dark">
-              <Lock className="w-8 h-8 text-white" />
-            </div>
-          </div>
+    <div className="relative min-h-screen flex items-center justify-center p-4 transition-colors duration-500
+      bg-gradient-to-br from-indigo-50 via-purple-100 to-pink-50
+      dark:bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] dark:from-[#1a0b2e] dark:via-[#000000] dark:to-[#000000]"
+    >
+      <div className="absolute top-6 right-6 z-10">
+        <ThemeToggle />
+      </div>
 
-          <h1 className="text-3xl font-bold text-center mb-2 text-gray-900 dark:text-white">
-            Dashly
-          </h1>
-          <p className="text-center text-gray-600 dark:text-gray-400 mb-8">
-            Войдите через корпоративный аккаунт
-          </p>
+      <div className="w-full max-w-[26rem]">
+        <div className="backdrop-blur-xl rounded-3xl p-10 shadow-2xl border transition-all duration-300
+          bg-white/70 border-white/50 shadow-purple-200/50
+          dark:bg-white/5 dark:border-white/10 dark:shadow-black/50"
+        >
+          <div className="text-center mb-10">
+            <h1 className="text-4xl font-extrabold tracking-[0.15em] mb-2 uppercase
+              bg-clip-text text-transparent bg-gradient-to-r 
+              from-violet-900 to-fuchsia-700
+              dark:from-white dark:to-purple-300"
+            >
+              Dashly
+            </h1>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Система управления
+            </p>
+          </div>
           
           {error && (
-            <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-3">
-               <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-               <div className="text-sm text-red-600 dark:text-red-400">
-                 {error}
+            <div className="mb-6 p-4 rounded-xl flex items-start gap-3 border
+              bg-red-50 border-red-200 text-red-700
+              dark:bg-red-900/20 dark:border-red-500/30 dark:text-red-300"
+            >
+               <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+               <div className="text-sm">
+                 <p className="font-semibold">{error}</p>
                  {error.includes("Браузер") && (
-                   <p className="mt-2 text-xs opacity-90">
-                     При работе по HTTP (не localhost) браузер отключает функции шифрования.
-                     <br/>
-                     <strong>Решение для Chrome:</strong> перейдите по ссылке <code>chrome://flags/#unsafely-treat-insecure-origin-as-secure</code>, введите IP вашего сервера, выберите Enable и перезапустите браузер.
+                   <p className="mt-2 text-xs opacity-90 leading-relaxed">
+                     Chrome flags: <code>chrome://flags/#unsafely-treat-insecure-origin-as-secure</code>
                    </p>
                  )}
                </div>
@@ -66,10 +103,23 @@ export function Login() {
 
           <button
             onClick={handleLogin}
-            className="w-full bg-gradient-to-r from-neon-purple to-neon-dark hover:from-neon-dark hover:to-neon-darker text-white font-semibold py-3 rounded-lg transition-all shadow-neon hover:shadow-neon-dark dark:shadow-neon-dark dark:hover:shadow-neon-dark flex items-center justify-center gap-2"
+            className="group w-full py-3.5 px-4 rounded-xl font-bold uppercase tracking-wider text-sm transition-all duration-300
+              text-white shadow-lg transform active:scale-[0.98]
+              bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500
+              shadow-violet-500/20 hover:shadow-violet-500/40
+              dark:shadow-violet-900/40 dark:hover:shadow-violet-600/60
+              flex items-center justify-center gap-3"
           >
+            <LogIn className="w-5 h-5 opacity-90 group-hover:translate-x-1 transition-transform" />
             Войти через Keycloak
           </button>
+
+          <div className="mt-8 text-center">
+             <p className="text-xs text-gray-400 dark:text-gray-500">
+               Корпоративный доступ
+             </p>
+          </div>
+
         </div>
       </div>
     </div>

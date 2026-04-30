@@ -1,21 +1,19 @@
-import { User } from 'oidc-client-ts';
+import { Service, ServiceItem } from './types';
 
-const API_URL = import.meta.env.VITE_API_URL;
+export const api = {
+  async getServices(): Promise<Service[]> {
+    const response = await fetch('/api/services');
+    if (!response.ok) {
+      throw new Error('Ошибка при получении списка сервисов');
+    }
+    return response.json();
+  },
 
-export async function fetchServiceItems(serviceId: string, authUser: User | null | undefined) {
-  if (!authUser?.access_token) {
-    throw new Error('No access token provided');
+  async getServiceItems(serviceId: string): Promise<ServiceItem[]> {
+    const response = await fetch(`/api/services/${serviceId}/items`);
+    if (!response.ok) {
+      throw new Error('Ошибка при получении элементов сервиса');
+    }
+    return response.json();
   }
-
-  const response = await fetch(`${API_URL}/services/${serviceId}`, {
-    headers: {
-      Authorization: `Bearer ${authUser.access_token}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Network response was not ok');
-  }
-
-  return response.json();
-}
+};

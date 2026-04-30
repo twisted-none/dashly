@@ -1,102 +1,84 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from 'react-oidc-context';
-import { Login } from './components/Login';
 import { Sidebar } from './components/Sidebar';
 import { ServiceCards } from './components/ServiceCards';
 import { Dashboard } from './components/Dashboard';
+import { Login } from './components/Login';
 import { ThemeToggle } from './components/ThemeToggle';
-import { Service, ServiceItem, User } from './types';
-import { fetchServiceItems } from './api';
-
-const SERVICES: Service[] = [
-  { id: 'statistics', name: 'Статистика', icon: 'chart' },
-  { id: 'metrics', name: 'Метрики', icon: 'trend' },
-  { id: 'storage', name: 'Хранилища', icon: 'database' },
-  { id: 'analytics', name: 'Аналитика', icon: 'brain' },
-  { id: 'integrations', name: 'Интеграции', icon: 'zap' },
-  { id: 'administration', name: 'Администрирование', icon: 'settings' },
-];
+import { Audience } from './components/Audience';
+import { DatabaseStats } from './components/DatabaseStats';
+import { SettingsView } from './components/SettingsView';
+import { LogsView } from './components/LogsView';
+import { ServerStats } from './components/ServerStats';
 
 function App() {
   const auth = useAuth();
-  const [activeService, setActiveService] = useState<string>('statistics');
-  const [serviceItems, setServiceItems] = useState<ServiceItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [activeService, setActiveService] = useState('main');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Загружаем данные при смене сервиса
-  useEffect(() => {
-    if (auth.isAuthenticated && activeService !== 'statistics') {
-      setLoading(true);
-      fetchServiceItems(activeService, auth.user)
-        .then((data) => setServiceItems(data))
-        .catch((err) => console.error(err))
-        .finally(() => setLoading(false));
-    }
-  }, [activeService, auth.isAuthenticated, auth.user]);
-
-  // Показываем загрузку, пока Keycloak проверяет сессию
   if (auth.isLoading) {
-    return <div className="flex h-screen items-center justify-center bg-gray-900 text-neon-purple">Загрузка...</div>;
+    return <div className="h-screen w-full flex items-center justify-center bg-black text-white">Loading...</div>;
   }
 
-  // Если не авторизован -> страница логина
   if (!auth.isAuthenticated) {
     return <Login />;
   }
 
-  // Создаем объект User из данных токена Keycloak
-  const user: User = {
-    id: auth.user?.profile.sub || '',
-    name: auth.user?.profile.name || auth.user?.profile.preferred_username || 'User',
-    email: auth.user?.profile.email || '',
-  };
+  const renderContent = () => {
+    const userData = { 
+      name: auth.user?.profile.preferred_username || 'User', 
+      email: auth.user?.profile.email || 'No email', 
+      role: 'admin', 
+      avatar: '' 
+    };
 
-  const handleLogout = () => {
-    auth.removeUser();
-    auth.signoutRedirect();
-  };
+    switch (activeService) {
+      case 'main':
+        return <Dashboard user={userData} />;
+      
+      // DevOps Mastery Bot
+      case 'metrics': 
+        return <ServiceCards serviceName="Статистика обучения" />;
+      case 'audience':
+        return <Audience serviceName="Аудитория" />;
+      case 'database':
+        return <DatabaseStats serviceName="База данных" />;
+      case 'settings':
+        return <SettingsView serviceName="Настройки и темы" />;
+      case 'logs':
+        return <LogsView serviceName="Логи" />;
 
-  const currentService = SERVICES.find((s) => s.id === activeService);
-  const isDefaultService = activeService === 'statistics';
+      // Server
+      case 'server_load':
+        return <ServerStats serviceName="Загруженность сервера" />;
+        
+      default:
+        return <Dashboard user={userData} />;
+    }
+  };
 
   return (
-    <div className="flex h-screen bg-white dark:bg-gray-950 transition-colors">
+    // Добавили h-screen и overflow-hidden для предотвращения общего скролла
+    <div className="flex h-screen w-full overflow-hidden transition-colors duration-500
+      bg-gradient-to-br from-indigo-50 via-purple-100 to-pink-50
+      dark:bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] dark:from-[#1a0b2e] dark:via-[#000000] dark:to-[#000000]"
+    >
       <Sidebar
-        services={SERVICES}
         activeService={activeService}
         onServiceSelect={setActiveService}
-        onLogout={handleLogout}
-        userName={user.name}
+        onLogout={() => auth.signoutRedirect()}
+        userName={auth.user?.profile.preferred_username || 'User'}
+        isCollapsed={!sidebarOpen}
+        toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
       />
-
-      <div className="flex-1 flex flex-col">
-        <div className="h-16 border-b border-gray-300 dark:border-neon-purple/20 bg-white dark:bg-gray-900 flex items-center justify-end px-8 shadow-sm transition-colors">
+      
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative">
+        <div className="absolute top-6 right-6 z-50">
           <ThemeToggle />
         </div>
 
-        {/* Контент */}
-        {isDefaultService ? (
-          <Dashboard user={user} />
-        ) : (
-          <>
-             {loading ? (
-                <div className="flex-1 flex items-center justify-center text-gray-500">Загрузка данных...</div>
-             ) : (
-                <ServiceCards
-                  items={serviceItems}
-                  serviceName={currentService?.name || 'Сервис'}
-                />
-             )}
-          </>
-        )}
-      </div>
-
-      <style>{`
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+        {renderContent()}
+      </main>
     </div>
   );
 }
